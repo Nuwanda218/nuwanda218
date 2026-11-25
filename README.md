@@ -17,7 +17,7 @@ Computer Science and Technology Undergraduate at Tianjin University.
 
 | 项目 | 解决的问题与工程重点 | 当前范围 |
 | --- | --- | --- |
-| [ContextFlow / CortexFlow](https://github.com/Nuwanda218/CortexFLow) | 组织分散的 AI 开发会话、任务和工作记录；Python、WebSocket、SQLite，关注消息接收、重复提交与状态管理。 | 开发中；界面原型使用模拟数据，后端与原型分别维护。 |
+| [CortexFlow](https://github.com/Nuwanda218/CortexFlow) | 组织分散的 AI 开发会话、任务和工作记录；Python、WebSocket、SQLite，关注消息接收、重复提交与状态管理。 | 开发中；界面原型使用模拟数据，后端与原型分别维护。 |
 | [DeepSeek 网页适配器与 uXueScript 集成](https://github.com/Nuwanda218/uxuescript/tree/feat/nuwanda-web-solver/injected/deepseek-web) | 将网页输入、发送与回复读取封装为模块，通过 ESM/IIFE 接入已有 Rust/Tauri 桌面应用。 | 已提交功能 PR，尚未合并；包含历史真实网页文本交互验证。 |
 | [API Tools](https://github.com/Nuwanda218/API-TOOLS) | 模型 API 协议适配、端点配置与工作流执行记录；React/TypeScript、Express、SQLite。 | 本地开发工作台，部署边界与文档继续整理。 |
 | [校园在线刷题与复习系统](projects/campus-quiz.md) | 在线答题、进度和错题训练；处理重复提交，备份并迁移题库数据。 | 历史归档记录 2868 个注册账户、约 84.9 万条答题记录；当前公开脱敏介绍。 |
