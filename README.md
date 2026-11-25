@@ -15,6 +15,8 @@ Computer Science and Technology Undergraduate at Tianjin University.
 
 ## Selected Work
 
+各项目的背景、模块及运行入口见 [项目说明草稿](projects/README.md)。
+
 | 项目 | 解决的问题与工程重点 | 当前范围 |
 | --- | --- | --- |
 | [CortexFlow](https://github.com/Nuwanda218/CortexFlow) | 组织分散的 AI 开发会话、任务和工作记录；Python、WebSocket、SQLite，关注消息接收、重复提交与状态管理。 | 开发中；界面原型使用模拟数据，后端与原型分别维护。 |
