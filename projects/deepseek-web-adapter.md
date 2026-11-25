@@ -1,58 +1,122 @@
 # DeepSeek Web Adapter
 
-> 项目说明草稿，整理于 2026-11-25。实现与验证范围对应当时的代码快照，可在此继续修改和完善。
+DeepSeek Web Adapter 将已有 DeepSeek 网页会话封装为 JavaScript 模块。调用方提交请求，模块负责填写输入、确认发送、等待生成、关联回复并提取完整结果，上层应用只需处理统一的结果与错误。
 
-把已有 DeepSeek 网页会话封装成可调用的 JavaScript 模块：调用方提交文本请求，Adapter 负责操作页面、确认是否发送、关联回复，并返回完整结果或结构化失败状态。
+它不依赖 Tauri、Tampermonkey 或私有 DeepSeek API，可作为 ESM 模块调用，也可构建为单文件 IIFE 注入页面。[uXueScript 集成](uxuescript-contribution.md)是它的一个实际应用。
 
-这是一个独立模块与客户端集成实践。当前版本为 `0.1.0`，包配置为 `private: true`，未发布到 npm；截至 2026-11-25，本地独立仓库尚未配置公开远端。公开可查的实际消费方是 [uXueScript 开发分支](https://github.com/Nuwanda218/uxuescript/tree/feat/nuwanda-web-solver)，相关贡献见 [上游 PR #61](https://github.com/unraous/uxuescript/pull/61)。截至同日，该 PR 为 Open，尚未合并。
+## 为什么独立封装网页操作
 
-## 解决的问题
+网页调用并不是“点击发送，然后读取最后一条消息”。输入控件可能异步更新，历史消息采用虚拟列表，发送后还会短暂出现空占位；看见内容变化，也不一定代表它属于当前请求或已经生成完成。
 
-网页生成是异步过程。点击发送、看见回复和确认当前请求完成是不同阶段；页面切换、虚拟列表滚动、控件异步更新也会影响判断。若只拼接点击脚本，调用方很难判断请求究竟未发送、已确认发送，还是投递状态不确定。
+如果这些判断散落在题目处理、桌面窗口和业务代码中，页面结构变化就会牵动多个模块，也难以统一判断失败发生在哪一步。因此，Adapter 集中管理 DOM 操作、发送确认、生成状态检测和回复关联，将网站变化限制在页面适配层内。业务代码通过请求与结果接口调用，而不直接依赖网页选择器。
 
-本模块将这些过程放进统一请求状态机，并隔离页面选择器和 DOM 操作，供宿主通过稳定接口消费。它操作网页公开界面，不依赖私有 DeepSeek API，也不依赖 Tauri 或 Tampermonkey。
+## 模块结构
 
-## 实现与结构
-
-| 文件或目录 | 职责 |
-| --- | --- |
-| `src/index.js`、`registry.js` | 三个公共导出与页面内单个存活实例管理 |
-| `src/adapter.js` | 初始化、生成、取消、事件与资源清理 |
-| `src/request.js` | 请求状态、绝对截止时间和投递状态 |
-| `src/page/` | 选择器、输入、开关、附件、消息关联和正文提取 |
-| `tests/unit/` | 状态与包消费契约；其余页面测试见 `tests/` |
-| `vite.config.js` | 构建单文件 IIFE，供页面注入 |
-
-主要设计：
-
-- 请求携带 `requestId`，以消息签名和出现次序关联新回复，适应历史消息虚拟列表的可见窗口变化。
-- 各阶段共用一个绝对截止时间；发送确认后才进入等待回复阶段，不把点击成功当成生成完成。
-- 投递状态区分 `not_sent`、`unknown`、`confirmed`。发送结果不确定时返回明确状态，不自动重发。
-- 取消区分本地等待结束与网页停止生成；后者只能尽力操作并观察，不能据此保证远端停止。
-- 模块导入没有 DOM 操作或网络副作用；调用方显式执行 `initialize()` 和 `generate()`。
-
-## 交付与使用
-
-包根提供 ESM `import`，公共导出为 `VERSION`、`createDeepSeekAdapter`、`getDeepSeekAdapterInstance`；没有 CommonJS 接口。构建后得到 `dist/deepseek-web-adapter.iife.js`，安装全局对象 `DeepSeekWebAdapter`，加载本身不会初始化或发送消息。
-
-以下是 ESM 调用顺序示意，需要消费环境已链接或安装本地模块；不是可从 npm 直接安装的说明：
-
-```javascript
-import { createDeepSeekAdapter } from 'deepseek-web-adapter';
-
-const adapter = createDeepSeekAdapter();
-// 在用户已登录且已打开的受支持会话页面执行：
-await adapter.initialize();
-const session = adapter.getSession();
-if (!session) throw new Error('会话未初始化');
-// 后续按 generate 的输入契约显式提交请求。
+```mermaid
+flowchart TB
+    App[调用方：请求与结果处理] --> API[公共 ESM 接口 / IIFE 全局对象]
+    API --> Adapter[Adapter：初始化、生成、取消、清理]
+    Adapter --> Request[请求上下文：状态机与统一截止时间]
+    Adapter --> Events[日志与状态订阅]
+    Adapter --> Page[页面适配层]
+    Page --> Composer[输入、选项与发送确认]
+    Page --> Messages[消息关联与生成完成检测]
+    Page --> Extract[正文提取]
+    Composer --> DOM[DeepSeek 网页 DOM]
+    Messages --> DOM
+    Extract --> DOM
 ```
 
-实际 uXueScript 集成采用 **vendor 源码**：将固定提交的 runtime 模块放入 `injected/deepseek-web/adapter-core/`，由宿主自己的构建管线生成 IIFE。它不是 npm 安装或自动同步；ESM 包根消费还另有独立消费者契约测试。
+`index.js` 只公开版本、实例创建和实例查询三个入口；`adapter.js` 编排一次请求，`request.js` 管理状态、时间与清理回调，`page/` 隔离选择器、输入控件和消息处理。页面内只允许一个存活实例，实例注册与释放由 `registry.js` 管理。
 
-## 构建与检查
+## 请求如何完成
 
-在独立模块根目录使用 Node.js、pnpm，依据锁文件安装开发依赖：
+请求从页面检查开始，依次配置开关、准备输入、尝试发送、确认用户消息、等待对应回复，最后提取正文。下面展示成功主链及主要结束分支；异常和取消可以发生在多个阶段。
+
+```mermaid
+flowchart TB
+    Validate[校验请求 validating] --> Check[检查页面 checking_page]
+    Check --> Configure[配置选项 configuring_options]
+    Configure --> Prepare[准备输入 preparing_input]
+    Prepare --> Ready[准备发送 ready_to_send]
+    Ready --> Attempt[尝试发送 send_attempted]
+    Attempt --> Sent[确认发送 sent]
+    Sent --> Await[等待回复 awaiting_response]
+    Await --> Generate[生成中 generating]
+    Generate --> Complete[完成 completed]
+    Ready -. 发送前失败 .-> Failed[失败 failed]
+    Attempt -. 发送或后续状态无法确认 .-> Uncertain[不确定 uncertain]
+    Generate -. 后续状态无法确认 .-> Uncertain
+    Ready -. 本地取消 .-> Cancelled[取消 cancelled]
+    Generate -. 取消且观察到网页停止 .-> Cancelled
+```
+
+**发送确认与回复关联。** 点击发送前记录消息快照；点击后，通过输入内容、消息签名及出现次序确认新用户消息，再寻找其对应的助手消息。这样不必假设虚拟列表始终保留完整历史，也不会把空占位当作正式回复。
+
+**所有阶段共用一个截止时间。** 请求创建时确定绝对截止时间，页面等待、发送确认和生成观察均使用剩余时间，避免每进入一个阶段就重新获得完整超时额度。部分操作还可以设置更短的阶段上限。
+
+**把发送状态与请求状态分开。** `not_sent` 表示尚未尝试发送，`unknown` 表示已尝试但无法可靠确认，`confirmed` 表示已从页面证据确认发送。确认发送以后仍可能发生生成失败或超时；不确定结果不会自动重发，以免造成重复消息。
+
+**取消与清理有各自职责。** `cancel(requestId)` 中止本地等待，并在仍能确认页面与请求归属时尝试点击停止、观察网页变化。`dispose()` 会取消活动请求、等待其退出，再清除会话缓存、订阅和实例注册；它不是简单地删除全局变量。
+
+## 接口与最小调用示例
+
+ESM 包根导出 `VERSION`、`createDeepSeekAdapter(options?)` 和 `getDeepSeekAdapterInstance()`。模块导入不会访问 DOM、联网或创建实例；调用方先显式创建实例，再调用 `initialize()`。IIFE 加载后暴露同名 API 对象 `globalThis.DeepSeekWebAdapter`，同样不会自动初始化或发送消息。
+
+以下示例在**已经加载独立 IIFE 的 DeepSeek 页面控制台**执行。它会实际发送一条文本请求；执行前需由操作者确认已登录、已打开受支持会话，且输入框为空、无附件、没有其他生成任务。
+
+```javascript
+const api = globalThis.DeepSeekWebAdapter;
+if (!api) throw new Error('请先加载 deepseek-web-adapter.iife.js');
+
+// 一个页面只允许一个存活实例；已有实例应由其创建方管理。
+const adapter = api.createDeepSeekAdapter();
+
+try {
+  await adapter.initialize();
+  const session = adapter.getSession();
+  if (!session) throw new Error('会话未初始化');
+
+  const result = await adapter.generate({
+    requestId: crypto.randomUUID(),
+    sessionId: session.id,
+    parts: [{ type: 'text', text: '请只回复：连接成功。' }],
+    options: {
+      thinking: false,
+      webSearch: false,
+      timeoutMs: 120000,
+    },
+  });
+
+  if (result.status === 'completed') {
+    console.log(result.content);
+  } else {
+    // failed 或 uncertain；保留状态供调用方处理，不自动重发。
+    console.error(result.status, result.error);
+  }
+} catch (error) {
+  // 初始化失败或请求参数不合法等错误。
+  console.error(error);
+} finally {
+  await adapter.dispose();
+}
+```
+
+ESM 应用使用同一套实例方法。在已具备本地模块的环境中，可用下面的导入替换示例中的全局 API 获取方式：
+
+```javascript
+import * as api from 'deepseek-web-adapter';
+```
+
+`generate()` 接收 `requestId`、从 `getSession()` 取得的 `sessionId`、输入 `parts` 和可选 `options`。成功返回 `completed` 与完整 `content`；运行失败返回 `failed` 或 `uncertain` 及结构化 `error`。`timeoutMs` 位于 `options` 内；省略 `thinking`、`webSearch` 时保留网页当前设置。
+
+状态图中的 `cancelled` 是内部请求状态；取消后的 `generate()` 结果仍使用 `failed` 或 `uncertain`，具体原因由结构化错误说明。
+
+## 源码与本地构建
+
+当前公开代码位于 uXueScript 开发分支中的 [Adapter 源码目录](https://github.com/Nuwanda218/uxuescript/tree/feat/nuwanda-web-solver/injected/deepseek-web/adapter-core)，其 [来源说明](https://github.com/Nuwanda218/uxuescript/blob/feat/nuwanda-web-solver/injected/deepseek-web/adapter-core/UPSTREAM.md)记录固定来源版本及必要的工具注解。
+
+独立模块提供如下开发命令；需先取得其包含 `package.json`、锁文件和构建配置的完整源码目录，准备 Node.js 与 pnpm：
 
 ```sh
 pnpm install --frozen-lockfile
@@ -63,18 +127,28 @@ pnpm format:check
 pnpm build
 ```
 
-命令来自当前 `package.json`；**本轮文档盘点未运行上述安装、测试或构建**。自动化检查覆盖本地状态、Mock DOM 与包/IIFE 契约，不能替代真实网页验收。首次接入时应先检查当前页面结构与会话条件。
+`pnpm build` 生成 `dist/deepseek-web-adapter.iife.js`。公开的 uXueScript 源码副本则通过该应用原有的 `pnpm build:scripts` 构建，两者的项目根目录和命令不能混用。
 
-## 已有证据与技术边界
+## 测试与验证
 
-- 历史真实网页记录：同一实例连续两轮文本请求完成，并验证销毁后重新初始化；本轮未重新访问真实会话。
-- 页面要求已登录、已有 UUID 会话；不自动登录、创建或切换会话。
-- 单张 PNG 的输入、挂载及 Mock DOM 流程已实现；历史记录仅确认真实页面挂载，尚未验收真实图片发送及模型理解，不能称为已验证的多模态能力。
-- 真实取消、超时与会话切换未完成全面验收；页面改版可能要求更新 DOM 适配。
-- uXueScript 已有纯文本消费链；真实学习通课程回填尚未验收。此模块返回完整结果，不提供 token 流接口。
+本地测试覆盖请求状态、统一超时、错误处理、Mock DOM、ESM 导入及独立 IIFE 构建。包接口测试还在独立消费者环境中按真实包名导入，检查模块加载与构建结果。
+
+已有真实网页记录验证了同一实例连续两轮文本生成、回复提取，以及 `dispose()` 后重新创建和初始化。过程中针对 React 开关异步更新、虚拟列表切换和空消息占位修正了页面判断。真实页面记录与受控测试分别验证网站行为和可重复构造的异常情形。
+
+文中的最小示例已使用实际公开 API 与受控页面对象检查初始化、请求参数、成功结果和最终清理。真实网页结论对应已有验证版本，页面改版后需要重新验收。
+
+## 当前状态与限制
+
+- 独立包版本为 `0.1.0`、`private: true`，没有 npm 发布或独立公开仓库。公开入口是上述 uXueScript 源码目录；ESM 包名示例要求调用方已经具备本地安装或链接条件。
+- 仅初始化已有 `/a/chat/s/<UUID>` 会话；登录、创建和切换会话由操作者完成。
+- 单张 PNG 的输入与页面挂载已实现，真实页面只验证过挂载，尚未验收真实图片发送和模型理解；实际 uXueScript 集成只使用纯文本。
+- 真实取消、超时与会话切换尚未全面验收。本地等待结束或网页出现停止状态，都不能保证远端计算已经终止。
+- 返回完整文本，不提供 token 流接口。页面改版可能要求更新选择器与状态判断。
 
 ## 个人贡献与来源
 
-本人负责方案设计、AI 辅助开发、宿主集成和验证，包括模块交付契约、请求状态边界、网页适配问题定位及跨仓消费。该表述表示技术决策与交付责任，不表示全部代码均由本人逐行独立手写。
+本人负责方案设计、AI 辅助开发、集成与验证，工作包括模块接口、请求状态设计、页面适配问题定位，以及与 uXueScript 的集成。
 
-独立模块来源版本为 `f4fdafef1f3a7589a04f4384732a3a63c83f762c`；宿主的 `adapter-core/UPSTREAM.md` 记录了来源、工具注解和人工更新规则。当前独立模块 `package.json` 没有 `license` 字段，Git 根目录没有 LICENSE/COPYING 文件，许可证状态尚待明确；本草稿不替项目指定许可证。宿主 uXueScript 的上游与许可证见其原仓库，不能据此自动推定独立模块采用同一许可。
+独立模块来源提交为 `f4fdafe`。其 `package.json` 尚无 `license` 字段，根目录也没有 LICENSE/COPYING 文件，独立模块许可证仍待明确；uXueScript 的许可与上游归属见[集成说明](uxuescript-contribution.md)。
+
+更新于 2026-11-25。

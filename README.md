@@ -1,38 +1,63 @@
 # Hi, I'm Nuwanda.
 
-天津大学计算机科学与技术专业本科生（2024–2028）
+天津大学计算机科学与技术学院，计算机科学与技术专业本科生（2024–2028）。
 
 Computer Science and Technology Undergraduate at Tianjin University.
 
-我喜欢从实际需求出发设计和构建软件，关注模块接口、系统边界和已有工程的集成，也使用 AI 辅助开发，并通过代码审查、测试和人工验收检查结果。
+关注软件工程、系统设计与 AI 应用开发，喜欢从实际需求出发探索技术方案，在构建软件和解决问题的过程中不断学习。
+
+[个人网站 · nuwanda.space](https://nuwanda.space/) · [项目介绍](projects/README.md)
 
 ## Engineering Interests
 
-- **模块设计与复用**：将网页交互、模型接入等功能封装为独立模块。
-- **系统设计与复杂度管理**：拆分任务与模块，处理消息、状态及持久化。
-- **既有系统理解与集成**：阅读调用链，在已有接口与构建流程中接入新功能。
-- **真实交付与 AI 辅助工程**：从可运行功能、数据维护和验证记录说明开发结果。
+- **模块设计与开发**：功能抽象、接口设计与可复用模块。
+- **系统设计与构建**：需求建模、架构设计与复杂度管理。
+- **既有系统理解与扩展**：源码分析、系统集成与功能扩展。
+- **AI 辅助开发**：探索 LLM 和 Agent 在软件开发、上下文管理及工程协作中的应用。
 
-## Selected Work
+## Selected Projects
 
-各项目的背景、模块及运行入口见 [项目说明草稿](projects/README.md)。
+### CortexFlow
 
-| 项目 | 解决的问题与工程重点 | 当前范围 |
-| --- | --- | --- |
-| [CortexFlow](https://github.com/Nuwanda218/CortexFlow) | 组织分散的 AI 开发会话、任务和工作记录；Python、WebSocket、SQLite，关注消息接收、重复提交与状态管理。 | 开发中；界面原型使用模拟数据，后端与原型分别维护。 |
-| [DeepSeek 网页适配器与 uXueScript 集成](https://github.com/Nuwanda218/uxuescript/tree/feat/nuwanda-web-solver/injected/deepseek-web) | 将网页输入、发送与回复读取封装为模块，通过 ESM/IIFE 接入已有 Rust/Tauri 桌面应用。 | 已提交功能 PR，尚未合并；包含历史真实网页文本交互验证。 |
-| [API Tools](https://github.com/Nuwanda218/API-TOOLS) | 模型 API 协议适配、端点配置与工作流执行记录；React/TypeScript、Express、SQLite。 | 本地开发工作台，部署边界与文档继续整理。 |
-| [校园在线刷题与复习系统](projects/campus-quiz.md) | 在线答题、进度和错题训练；处理重复提交，备份并迁移题库数据。 | 历史归档记录 2868 个注册账户、约 84.9 万条答题记录；当前公开脱敏介绍。 |
+面向长期 AI 辅助开发的上下文管理系统，将分散的对话、任务和工作记录按项目与开发过程组织起来。通过浏览器适配层、消息通信与后端存储分工，减少系统对具体 AI 工具的依赖。
 
-### More Practice
+**技术**：Python · WebSocket · SQLite · Vue · TypeScript<br>
+**状态**：持续开发中；已有消息接入与持久化，独立界面原型使用模拟数据，项目工作区存储在本地迭代。
 
-- [Schedule Studio](https://github.com/Nuwanda218/schedule)：原生 JavaScript 模块、日期输入解析和 localStorage 日程管理。
-- [DeepSeek 集成 PR #61](https://github.com/unraous/uxuescript/pull/61) · [兼容性提案 Issue #62](https://github.com/unraous/uxuescript/issues/62)
+[项目介绍](projects/cortexflow.md) · [源代码](https://github.com/Nuwanda218/CortexFlow)
+
+### DeepSeek Web Adapter 与 uXueScript 集成
+
+将网页输入、消息发送、生成状态检测和回复提取封装为独立适配器，再接入已有的 uXueScript 桌面应用，用于网页题目求解。这个项目同时涉及模块接口设计与既有系统集成。
+
+**技术**：JavaScript · ESM / IIFE · Rust · Tauri · WebView<br>
+**状态**：完成模块及功能分支集成，有真实网页文本交互验证；功能 PR 待合并。
+
+[适配器介绍](projects/deepseek-web-adapter.md) · [集成贡献](projects/uxuescript-contribution.md) · [功能分支](https://github.com/Nuwanda218/uxuescript/tree/feat/nuwanda-web-solver) · [PR #61](https://github.com/unraous/uxuescript/pull/61)
+
+### API Tools
+
+模型 API 管理与调用工作台，将服务商配置、协议适配、端点测试和工作流执行记录放在同一个界面中。不同协议由独立适配器处理，界面和工作流使用统一调用入口。
+
+**技术**：React · TypeScript · Express · SQLite / sql.js<br>
+**状态**：已有前后端与自动化测试，当前面向受控本地使用，网络监听及管理接口认证仍需完善。
+
+[项目介绍](projects/api-tools.md) · [源代码](https://github.com/Nuwanda218/API-TOOLS)
+
+### 校园在线刷题与复习系统
+
+合作开发的校内期末复习网站，本人参与开发。系统提供轮次进度、错题训练和题库更新，通过提交标识处理重复提交，并通过备份、历史归档和事务迁移保留答题数据。
+
+**技术**：Python · Flask · SQLite · JavaScript<br>
+**成果**：历史归档记录 **2868 个注册账户**、约 **84.9 万条答题记录**，当前提供脱敏项目介绍。
+
+[项目介绍](projects/campus-quiz.md) · [项目仓库（介绍版本）](https://github.com/Nuwanda218/campus-quiz)
+
+## Other Projects
+
+- [Schedule Studio](projects/schedule.md)：原生 JavaScript 日程应用，包含多视图、快速输入解析和本地存储。[源代码](https://github.com/Nuwanda218/schedule)
+- [Nuwanda Space](projects/nuwanda-space.md)：个人网站中的内容组织、图片展示与 Astro 工程实践。[网站](https://nuwanda.space/) · [源代码](https://github.com/Nuwanda218/nuwanda.space)
 
 ## Technical Practice
 
-- 主要使用 **Python、JavaScript / TypeScript** 开发工具和 Web 功能。
-- 有 **Rust / Tauri** 既有工程的阅读、修改与模块集成经历。
-- 使用 **HTTP、WebSocket、SSE、SQLite、Git、Linux、Nginx** 处理通信、状态、协作和部署问题。
-
-项目规模、公开分支状态和真实运行验证分别记录；个人贡献也区分方案设计、AI 辅助实现、集成和验收。
+主要使用 Python、JavaScript / TypeScript 开发工具和 Web 功能，有 Rust / Tauri 既有工程的阅读与集成经历。开发中使用 Git、Linux、HTTP、WebSocket、SSE、SQLite 和 Nginx，并结合 AI 辅助实现、代码审查、测试与人工验收推进项目。
